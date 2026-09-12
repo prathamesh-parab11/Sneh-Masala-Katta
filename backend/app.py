@@ -13,9 +13,9 @@ app = Flask(__name__)
 
 # Session configuration
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_SECURE"] = True
 
 CORS(
     app,
