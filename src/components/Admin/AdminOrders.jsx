@@ -10,7 +10,7 @@ function AdminOrders({ onLogout }) {  const [orders, setOrders] = useState([])
       setError('')
 
       const response = await fetch(
-        'http://localhost:5000/api/orders',
+        'https://sneh-masala-katta-backend.onrender.com/api/orders',
         {
           credentials: 'include',
         },

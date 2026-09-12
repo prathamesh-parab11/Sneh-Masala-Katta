@@ -32,3 +32,6 @@ backend/*.db
 # Python cache
 backend/__pycache__/
 backend/*.pyc
+
+# Python virtual environment
+backend/masala-env/

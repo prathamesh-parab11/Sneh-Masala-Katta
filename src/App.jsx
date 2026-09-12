@@ -36,7 +36,7 @@ useEffect(() => {
   const checkAdminSession = async () => {
     try {
       const response = await fetch(
-        'http://localhost:5000/api/admin/check',
+        'https://sneh-masala-katta-backend.onrender.com/api/admin/check',
         {
           credentials: 'include',
         },
@@ -142,7 +142,7 @@ return (
     onLogout={async () => {
       try {
         await fetch(
-          'http://localhost:5000/api/admin/logout',
+          'https://sneh-masala-katta-backend.onrender.com/api/admin/logout',
           {
             method: 'POST',
             credentials: 'include',
