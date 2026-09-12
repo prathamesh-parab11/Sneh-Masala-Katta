@@ -13,31 +13,45 @@ function AdminLogin({ onLogin }) {
     setLoading(true)
 
     try {
-      const response = await fetch('https://sneh-masala-katta-backend.onrender.com/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        'https://sneh-masala-katta-backend.onrender.com/api/admin/login',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username,
+            password,
+          }),
         },
-        credentials: 'include',
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      })
+      )
 
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.message || 'Invalid username or password.')
+        setError(
+          data.message || 'Invalid username or password.',
+        )
         return
       }
 
-      if (data.success) {
+      if (data.success && data.token) {
+        sessionStorage.setItem(
+          'adminToken',
+          data.token,
+        )
+
         onLogin()
+      } else {
+        setError('Login failed. Please try again.')
       }
     } catch (error) {
       console.error('Login error:', error)
-      setError('Unable to connect to the server.')
+
+      setError(
+        'Unable to connect to the server.',
+      )
     } finally {
       setLoading(false)
     }
@@ -61,7 +75,8 @@ function AdminLogin({ onLogin }) {
           background: '#ffffff',
           padding: '35px',
           borderRadius: '12px',
-          boxShadow: '0 5px 25px rgba(0, 0, 0, 0.1)',
+          boxShadow:
+            '0 5px 25px rgba(0, 0, 0, 0.1)',
         }}
       >
         <h1
@@ -100,7 +115,9 @@ function AdminLogin({ onLogin }) {
               id="username"
               type="text"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) =>
+                setUsername(event.target.value)
+              }
               placeholder="Enter username"
               required
               style={{
@@ -130,7 +147,9 @@ function AdminLogin({ onLogin }) {
               id="password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               placeholder="Enter password"
               required
               style={{
@@ -171,11 +190,15 @@ function AdminLogin({ onLogin }) {
               color: '#ffffff',
               fontSize: '16px',
               fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: loading
+                ? 'not-allowed'
+                : 'pointer',
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading
+              ? 'Logging in...'
+              : 'Login'}
           </button>
         </form>
       </div>

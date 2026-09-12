@@ -15,27 +15,41 @@ function AdminOrders({ onLogout }) {
   const API_URL =
     'https://sneh-masala-katta-backend.onrender.com/api/orders'
 
+  const getHeaders = () => {
+    const token = sessionStorage.getItem(
+      'adminToken',
+    )
+
+    return {
+      Authorization: `Bearer ${token}`,
+    }
+  }
+
   const fetchOrders = async () => {
     try {
       setLoading(true)
       setError('')
 
       const response = await fetch(API_URL, {
-        credentials: 'include',
+        headers: getHeaders(),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
         throw new Error(
-          data.message || 'Failed to load orders.'
+          data.message ||
+            'Failed to load orders.',
         )
       }
 
       setOrders(data.orders)
     } catch (error) {
       console.error('Orders error:', error)
-      setError('Unable to load orders.')
+
+      setError(
+        'Unable to load orders.',
+      )
     } finally {
       setLoading(false)
     }
@@ -46,7 +60,9 @@ function AdminOrders({ onLogout }) {
   }, [])
 
   const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = search
+      .trim()
+      .toLowerCase()
 
     if (!query) {
       return orders
@@ -62,33 +78,39 @@ function AdminOrders({ onLogout }) {
       ]
         .join(' ')
         .toLowerCase()
-        .includes(query)
+        .includes(query),
     )
   }, [orders, search])
 
   const totalSales = orders.reduce(
-    (sum, order) => sum + Number(order.total || 0),
-    0
+    (sum, order) =>
+      sum + Number(order.total || 0),
+    0,
   )
 
   const today = new Date().toDateString()
 
   const todayOrders = orders.filter(
     (order) =>
-      new Date(order.createdAt).toDateString() === today
+      new Date(
+        order.createdAt,
+      ).toDateString() === today,
   )
 
   const todaySales = todayOrders.reduce(
-    (sum, order) => sum + Number(order.total || 0),
-    0
+    (sum, order) =>
+      sum + Number(order.total || 0),
+    0,
   )
 
   const openEditModal = (order) => {
     setEditingOrder({
       ...order,
-      items: order.items.map((item) => ({
-        ...item,
-      })),
+      items: order.items.map(
+        (item) => ({
+          ...item,
+        }),
+      ),
     })
   }
 
@@ -98,23 +120,31 @@ function AdminOrders({ onLogout }) {
     }
   }
 
-  const handleEditChange = (field, value) => {
+  const handleEditChange = (
+    field,
+    value,
+  ) => {
     setEditingOrder((current) => ({
       ...current,
       [field]: value,
     }))
   }
 
-  const handleQuantityChange = (itemId, value) => {
+  const handleQuantityChange = (
+    itemId,
+    value,
+  ) => {
     setEditingOrder((current) => ({
       ...current,
-      items: current.items.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              quantity: value,
-            }
-          : item
+
+      items: current.items.map(
+        (item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                quantity: value,
+              }
+            : item,
       ),
     }))
   }
@@ -129,7 +159,7 @@ function AdminOrders({ onLogout }) {
         sum +
         Number(item.price || 0) *
           Number(item.quantity || 0),
-      0
+      0,
     )
   }
 
@@ -145,86 +175,123 @@ function AdminOrders({ onLogout }) {
         `${API_URL}/${editingOrder.id}`,
         {
           method: 'PUT',
+
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type':
+              'application/json',
+            ...getHeaders(),
           },
-          credentials: 'include',
+
           body: JSON.stringify({
             name: editingOrder.name,
             phone: editingOrder.phone,
             address: editingOrder.address,
             city: editingOrder.city,
             pincode: editingOrder.pincode,
-            items: editingOrder.items.map((item) => ({
-              id: item.id,
-              quantity: Number(item.quantity),
-            })),
+
+            items:
+              editingOrder.items.map(
+                (item) => ({
+                  id: item.id,
+                  quantity:
+                    Number(
+                      item.quantity,
+                    ),
+                }),
+              ),
           }),
-        }
+        },
       )
 
-      const data = await response.json()
+      const data =
+        await response.json()
 
       if (!response.ok) {
         throw new Error(
-          data.message || 'Failed to update order.'
+          data.message ||
+            'Failed to update order.',
         )
       }
 
-      setOrders((currentOrders) =>
-        currentOrders.map((order) =>
-          order.id === data.order.id
-            ? data.order
-            : order
-        )
+      setOrders(
+        (currentOrders) =>
+          currentOrders.map(
+            (order) =>
+              order.id === data.order.id
+                ? data.order
+                : order,
+          ),
       )
 
       setEditingOrder(null)
     } catch (error) {
-      console.error('Update order error:', error)
-      alert(error.message || 'Unable to update order.')
+      console.error(
+        'Update order error:',
+        error,
+      )
+
+      alert(
+        error.message ||
+          'Unable to update order.',
+      )
     } finally {
       setSaving(false)
     }
   }
 
-  const deleteOrder = async (order) => {
-    const confirmed = window.confirm(
-      `Delete order ${order.orderNumber}?\n\nThis action cannot be undone.`
-    )
+  const deleteOrder = async (
+    order,
+  ) => {
+    const confirmed =
+      window.confirm(
+        `Delete order ${order.orderNumber}?\n\nThis action cannot be undone.`,
+      )
 
     if (!confirmed) {
       return
     }
 
     try {
-      setDeletingOrderId(order.id)
+      setDeletingOrderId(
+        order.id,
+      )
 
       const response = await fetch(
         `${API_URL}/${order.id}`,
         {
           method: 'DELETE',
-          credentials: 'include',
-        }
+          headers: getHeaders(),
+        },
       )
 
-      const data = await response.json()
+      const data =
+        await response.json()
 
       if (!response.ok) {
         throw new Error(
-          data.message || 'Failed to delete order.'
+          data.message ||
+            'Failed to delete order.',
         )
       }
 
-      setOrders((currentOrders) =>
-        currentOrders.filter(
-          (currentOrder) =>
-            currentOrder.id !== order.id
-        )
+      setOrders(
+        (currentOrders) =>
+          currentOrders.filter(
+            (currentOrder) =>
+              currentOrder.id !==
+              order.id,
+          ),
       )
     } catch (error) {
-      console.error('Delete order error:', error)
-      alert(error.message || 'Unable to delete order.')
+      console.error(
+        'Delete order error:',
+        error,
+      )
+
+      alert(
+        error.message ||
+          'Unable to delete order.',
+      )
     } finally {
       setDeletingOrderId(null)
     }
@@ -245,7 +312,10 @@ function AdminOrders({ onLogout }) {
     return (
       <section className="admin-page">
         <div className="admin-error">
-          <h2>Something went wrong</h2>
+          <h2>
+            Something went wrong
+          </h2>
+
           <p>{error}</p>
 
           <button
@@ -262,10 +332,6 @@ function AdminOrders({ onLogout }) {
   return (
     <section className="admin-page">
 
-      {/* =========================
-          HEADER
-      ========================= */}
-
       <div className="admin-header">
 
         <div>
@@ -273,10 +339,13 @@ function AdminOrders({ onLogout }) {
             ADMIN PANEL
           </p>
 
-          <h1>Customer Orders</h1>
+          <h1>
+            Customer Orders
+          </h1>
 
           <p className="admin-subtitle">
-            Manage and track your customer orders.
+            Manage and track your customer
+            orders.
           </p>
         </div>
 
@@ -300,43 +369,55 @@ function AdminOrders({ onLogout }) {
 
       </div>
 
-
-      {/* =========================
-          STATS
-      ========================= */}
-
       <div className="admin-stats">
 
         <div className="admin-stat-card">
-          <span>Total Orders</span>
-          <strong>{orders.length}</strong>
-        </div>
+          <span>
+            Total Orders
+          </span>
 
-        <div className="admin-stat-card">
-          <span>Today's Orders</span>
-          <strong>{todayOrders.length}</strong>
-        </div>
-
-        <div className="admin-stat-card">
-          <span>Total Sales</span>
           <strong>
-            ₹{totalSales.toLocaleString('en-IN')}
+            {orders.length}
           </strong>
         </div>
 
         <div className="admin-stat-card">
-          <span>Today's Sales</span>
+          <span>
+            Today's Orders
+          </span>
+
           <strong>
-            ₹{todaySales.toLocaleString('en-IN')}
+            {todayOrders.length}
+          </strong>
+        </div>
+
+        <div className="admin-stat-card">
+          <span>
+            Total Sales
+          </span>
+
+          <strong>
+            ₹
+            {totalSales.toLocaleString(
+              'en-IN',
+            )}
+          </strong>
+        </div>
+
+        <div className="admin-stat-card">
+          <span>
+            Today's Sales
+          </span>
+
+          <strong>
+            ₹
+            {todaySales.toLocaleString(
+              'en-IN',
+            )}
           </strong>
         </div>
 
       </div>
-
-
-      {/* =========================
-          SEARCH
-      ========================= */}
 
       <div className="admin-toolbar">
 
@@ -349,14 +430,18 @@ function AdminOrders({ onLogout }) {
             placeholder="Search by order number, customer, phone..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value,
+              )
             }
           />
 
           {search && (
             <button
               className="search-clear"
-              onClick={() => setSearch('')}
+              onClick={() =>
+                setSearch('')
+              }
             >
               ×
             </button>
@@ -372,11 +457,6 @@ function AdminOrders({ onLogout }) {
         </p>
 
       </div>
-
-
-      {/* =========================
-          ORDERS
-      ========================= */}
 
       {filteredOrders.length === 0 ? (
 
@@ -404,172 +484,191 @@ function AdminOrders({ onLogout }) {
 
         <div className="orders-list">
 
-          {filteredOrders.map((order) => (
+          {filteredOrders.map(
+            (order) => (
 
-            <article
-              className="order-card"
-              key={order.id}
-            >
+              <article
+                className="order-card"
+                key={order.id}
+              >
 
-              {/* ORDER HEADER */}
+                <div className="order-card-top">
 
-              <div className="order-card-top">
+                  <div>
 
-                <div>
+                    <span className="order-label">
+                      ORDER
+                    </span>
 
-                  <span className="order-label">
-                    ORDER
-                  </span>
+                    <h2>
+                      {order.orderNumber}
+                    </h2>
 
-                  <h2>
-                    {order.orderNumber}
-                  </h2>
+                    <p className="order-date">
+                      {new Date(
+                        order.createdAt,
+                      ).toLocaleString(
+                        'en-IN',
+                        {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        },
+                      )}
+                    </p>
 
-                  <p className="order-date">
-                    {new Date(
-                      order.createdAt
-                    ).toLocaleString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  </div>
+
+                  <div className="order-total">
+                    ₹
+                    {Number(
+                      order.total,
+                    ).toLocaleString(
+                      'en-IN',
+                    )}
+                  </div>
+
+                </div>
+
+                <div className="order-section">
+
+                  <h3>
+                    Customer
+                  </h3>
+
+                  <div className="customer-grid">
+
+                    <div>
+                      <span>
+                        Name
+                      </span>
+
+                      <strong>
+                        {order.name}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Phone
+                      </span>
+
+                      <strong>
+                        {order.phone}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="order-section">
+
+                  <h3>
+                    Delivery Address
+                  </h3>
+
+                  <p className="address-text">
+                    {order.address}
+                    <br />
+                    {order.city} -{' '}
+                    {order.pincode}
                   </p>
 
                 </div>
 
-                <div className="order-total">
-                  ₹
-                  {Number(
-                    order.total
-                  ).toLocaleString('en-IN')}
-                </div>
+                <div className="order-section">
 
-              </div>
+                  <h3>
+                    Items
+                  </h3>
 
+                  <div className="items-list">
 
-              {/* CUSTOMER */}
+                    {order.items.map(
+                      (item) => (
 
-              <div className="order-section">
+                        <div
+                          className="admin-order-item"
+                          key={item.id}
+                        >
 
-                <h3>Customer</h3>
+                          <div>
+                            <strong>
+                              {item.name}
+                            </strong>
 
-                <div className="customer-grid">
+                            <span>
+                              ₹
+                              {item.price}{' '}
+                              ×{' '}
+                              {
+                                item.quantity
+                              }
+                            </span>
+                          </div>
 
-                  <div>
-                    <span>Name</span>
-                    <strong>{order.name}</strong>
+                          <strong>
+                            ₹
+                            {Number(
+                              item.subtotal,
+                            ).toLocaleString(
+                              'en-IN',
+                            )}
+                          </strong>
+
+                        </div>
+
+                      ),
+                    )}
+
                   </div>
 
-                  <div>
-                    <span>Phone</span>
-                    <strong>{order.phone}</strong>
-                  </div>
+                </div>
+
+                <div className="order-actions">
+
+                  <button
+                    className="edit-order-button"
+                    onClick={() =>
+                      openEditModal(
+                        order,
+                      )
+                    }
+                  >
+                    ✎ Edit Order
+                  </button>
+
+                  <button
+                    className="delete-order-button"
+                    onClick={() =>
+                      deleteOrder(
+                        order,
+                      )
+                    }
+                    disabled={
+                      deletingOrderId ===
+                      order.id
+                    }
+                  >
+                    {deletingOrderId ===
+                    order.id
+                      ? 'Deleting...'
+                      : 'Delete'}
+                  </button>
 
                 </div>
 
-              </div>
+              </article>
 
-
-              {/* ADDRESS */}
-
-              <div className="order-section">
-
-                <h3>Delivery Address</h3>
-
-                <p className="address-text">
-                  {order.address}
-                  <br />
-                  {order.city} - {order.pincode}
-                </p>
-
-              </div>
-
-
-              {/* ITEMS */}
-
-              <div className="order-section">
-
-                <h3>Items</h3>
-
-                <div className="items-list">
-
-                  {order.items.map((item) => (
-
-                    <div
-                      className="admin-order-item"
-                      key={item.id}
-                    >
-
-                      <div>
-                        <strong>
-                          {item.name}
-                        </strong>
-
-                        <span>
-                          ₹{item.price} ×{' '}
-                          {item.quantity}
-                        </span>
-                      </div>
-
-                      <strong>
-                        ₹
-                        {Number(
-                          item.subtotal
-                        ).toLocaleString('en-IN')}
-                      </strong>
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-              </div>
-
-
-              {/* ACTIONS */}
-
-              <div className="order-actions">
-
-                <button
-                  className="edit-order-button"
-                  onClick={() =>
-                    openEditModal(order)
-                  }
-                >
-                  ✎ Edit Order
-                </button>
-
-                <button
-                  className="delete-order-button"
-                  onClick={() =>
-                    deleteOrder(order)
-                  }
-                  disabled={
-                    deletingOrderId === order.id
-                  }
-                >
-                  {deletingOrderId === order.id
-                    ? 'Deleting...'
-                    : 'Delete'}
-                </button>
-
-              </div>
-
-            </article>
-
-          ))}
+            ),
+          )}
 
         </div>
 
       )}
-
-
-      {/* =========================
-          EDIT MODAL
-      ========================= */}
 
       {editingOrder && (
 
@@ -577,7 +676,8 @@ function AdminOrders({ onLogout }) {
           className="admin-modal-overlay"
           onMouseDown={(event) => {
             if (
-              event.target === event.currentTarget
+              event.target ===
+              event.currentTarget
             ) {
               closeEditModal()
             }
@@ -595,14 +695,18 @@ function AdminOrders({ onLogout }) {
                 </p>
 
                 <h2>
-                  {editingOrder.orderNumber}
+                  {
+                    editingOrder.orderNumber
+                  }
                 </h2>
 
               </div>
 
               <button
                 className="modal-close"
-                onClick={closeEditModal}
+                onClick={
+                  closeEditModal
+                }
                 disabled={saving}
               >
                 ×
@@ -610,12 +714,11 @@ function AdminOrders({ onLogout }) {
 
             </div>
 
-
-            {/* CUSTOMER FIELDS */}
-
             <div className="modal-section">
 
-              <h3>Customer Information</h3>
+              <h3>
+                Customer Information
+              </h3>
 
               <div className="form-grid">
 
@@ -624,11 +727,16 @@ function AdminOrders({ onLogout }) {
 
                   <input
                     type="text"
-                    value={editingOrder.name}
-                    onChange={(event) =>
+                    value={
+                      editingOrder.name
+                    }
+                    onChange={(
+                      event,
+                    ) =>
                       handleEditChange(
                         'name',
-                        event.target.value
+                        event.target
+                          .value,
                       )
                     }
                   />
@@ -639,11 +747,16 @@ function AdminOrders({ onLogout }) {
 
                   <input
                     type="text"
-                    value={editingOrder.phone}
-                    onChange={(event) =>
+                    value={
+                      editingOrder.phone
+                    }
+                    onChange={(
+                      event,
+                    ) =>
                       handleEditChange(
                         'phone',
-                        event.target.value
+                        event.target
+                          .value,
                       )
                     }
                   />
@@ -655,11 +768,16 @@ function AdminOrders({ onLogout }) {
                 Address
 
                 <textarea
-                  value={editingOrder.address}
-                  onChange={(event) =>
+                  value={
+                    editingOrder.address
+                  }
+                  onChange={(
+                    event,
+                  ) =>
                     handleEditChange(
                       'address',
-                      event.target.value
+                      event.target
+                        .value,
                     )
                   }
                   rows="3"
@@ -673,11 +791,16 @@ function AdminOrders({ onLogout }) {
 
                   <input
                     type="text"
-                    value={editingOrder.city}
-                    onChange={(event) =>
+                    value={
+                      editingOrder.city
+                    }
+                    onChange={(
+                      event,
+                    ) =>
                       handleEditChange(
                         'city',
-                        event.target.value
+                        event.target
+                          .value,
                       )
                     }
                   />
@@ -688,11 +811,16 @@ function AdminOrders({ onLogout }) {
 
                   <input
                     type="text"
-                    value={editingOrder.pincode}
-                    onChange={(event) =>
+                    value={
+                      editingOrder.pincode
+                    }
+                    onChange={(
+                      event,
+                    ) =>
                       handleEditChange(
                         'pincode',
-                        event.target.value
+                        event.target
+                          .value,
                       )
                     }
                   />
@@ -702,12 +830,11 @@ function AdminOrders({ onLogout }) {
 
             </div>
 
-
-            {/* ITEMS */}
-
             <div className="modal-section">
 
-              <h3>Order Items</h3>
+              <h3>
+                Order Items
+              </h3>
 
               <div className="edit-items">
 
@@ -726,7 +853,9 @@ function AdminOrders({ onLogout }) {
                         </strong>
 
                         <span>
-                          ₹{item.price} each
+                          ₹
+                          {item.price}{' '}
+                          each
                         </span>
 
                       </div>
@@ -734,11 +863,16 @@ function AdminOrders({ onLogout }) {
                       <input
                         type="number"
                         min="1"
-                        value={item.quantity}
-                        onChange={(event) =>
+                        value={
+                          item.quantity
+                        }
+                        onChange={(
+                          event,
+                        ) =>
                           handleQuantityChange(
                             item.id,
-                            event.target.value
+                            event.target
+                              .value,
                           )
                         }
                       />
@@ -746,48 +880,49 @@ function AdminOrders({ onLogout }) {
                       <strong>
                         ₹
                         {(
-                          Number(item.price) *
                           Number(
-                            item.quantity || 0
+                            item.price,
+                          ) *
+                          Number(
+                            item.quantity ||
+                              0,
                           )
                         ).toLocaleString(
-                          'en-IN'
+                          'en-IN',
                         )}
                       </strong>
 
                     </div>
 
-                  )
+                  ),
                 )}
 
               </div>
 
             </div>
 
-
-            {/* TOTAL */}
-
             <div className="modal-total">
 
-              <span>Updated Total</span>
+              <span>
+                Updated Total
+              </span>
 
               <strong>
                 ₹
                 {calculateEditTotal().toLocaleString(
-                  'en-IN'
+                  'en-IN',
                 )}
               </strong>
 
             </div>
 
-
-            {/* MODAL ACTIONS */}
-
             <div className="modal-actions">
 
               <button
                 className="admin-secondary-button"
-                onClick={closeEditModal}
+                onClick={
+                  closeEditModal
+                }
                 disabled={saving}
               >
                 Cancel

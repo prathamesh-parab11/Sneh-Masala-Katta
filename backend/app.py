@@ -1,8 +1,9 @@
-from flask import Flask, request, session
+from flask import Flask, request
 from flask_cors import CORS
 from models import db, Order, OrderItem
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import os
 import random
 
@@ -11,11 +12,11 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Session configuration
+# =========================
+# APP CONFIGURATION
+# =========================
+
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True
 
 CORS(
     app,
@@ -28,14 +29,20 @@ CORS(
 )
 
 
-# Database configuration
+# =========================
+# DATABASE CONFIGURATION
+# =========================
+
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 
 
-# Create database tables
+# =========================
+# CREATE DATABASE TABLES
+# =========================
+
 with app.app_context():
     db.create_all()
 
@@ -44,55 +51,123 @@ with app.app_context():
 # ADMIN AUTHENTICATION
 # =========================
 
+def create_admin_token():
+    serializer = URLSafeTimedSerializer(
+        app.config["SECRET_KEY"]
+    )
+
+    return serializer.dumps(
+        {
+            "admin": True
+        },
+        salt="admin-auth",
+    )
+
+
+def verify_admin_token(token):
+    if not token:
+        return False
+
+    serializer = URLSafeTimedSerializer(
+        app.config["SECRET_KEY"]
+    )
+
+    try:
+        data = serializer.loads(
+            token,
+            salt="admin-auth",
+            max_age=86400,
+        )
+
+        return data.get("admin") is True
+
+    except (BadSignature, SignatureExpired):
+        return False
+
+
+def is_admin_authenticated():
+
+    authorization = request.headers.get(
+        "Authorization",
+        "",
+    )
+
+    if not authorization.startswith("Bearer "):
+        return False
+
+    token = authorization.replace(
+        "Bearer ",
+        "",
+        1,
+    ).strip()
+
+    return verify_admin_token(token)
+
+
+# =========================
+# ADMIN LOGIN
+# =========================
+
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
-    data = request.get_json()
+
+    data = request.get_json() or {}
 
     username = data.get("username")
     password = data.get("password")
 
-    # Check credentials from .env
     if (
-    username == os.getenv("ADMIN_USERNAME")
-    and check_password_hash(
-        os.getenv("ADMIN_PASSWORD_HASH"),
-        password,
-    )
-):
-        session["admin_logged_in"] = True
+        username == os.getenv("ADMIN_USERNAME")
+        and check_password_hash(
+            os.getenv("ADMIN_PASSWORD_HASH"),
+            password,
+        )
+    ):
+
+        token = create_admin_token()
 
         return {
             "success": True,
-            "message": "Login successful."
+            "message": "Login successful.",
+            "token": token,
         }
 
     return {
         "success": False,
-        "message": "Invalid username or password."
+        "message": "Invalid username or password.",
     }, 401
 
 
+# =========================
+# ADMIN LOGOUT
+# =========================
+
 @app.route("/api/admin/logout", methods=["POST"])
 def admin_logout():
-    session.pop("admin_logged_in", None)
 
     return {
         "success": True,
-        "message": "Logged out successfully."
+        "message": "Logged out successfully.",
     }
 
 
+# =========================
+# CHECK ADMIN LOGIN
+# =========================
+
 @app.route("/api/admin/check", methods=["GET"])
 def admin_check():
-    if session.get("admin_logged_in"):
+
+    if is_admin_authenticated():
+
         return {
             "success": True,
-            "authenticated": True
+            "authenticated": True,
         }
 
     return {
         "success": True,
-        "authenticated": False
+        "authenticated": False,
     }
 
 
@@ -103,11 +178,11 @@ def admin_check():
 @app.route("/api/orders", methods=["GET"])
 def get_orders():
 
-    # Check if admin is logged in
-    if not session.get("admin_logged_in"):
+    if not is_admin_authenticated():
+
         return {
             "success": False,
-            "message": "Unauthorized. Admin login required."
+            "message": "Unauthorized. Admin login required.",
         }, 401
 
     orders = Order.query.order_by(
@@ -117,6 +192,7 @@ def get_orders():
     result = []
 
     for order in orders:
+
         result.append({
             "id": order.id,
             "orderNumber": order.order_number,
@@ -127,14 +203,17 @@ def get_orders():
             "pincode": order.pincode,
             "total": order.total,
             "createdAt": order.created_at.isoformat(),
+
             "items": [
                 {
+                    "id": item.id,
                     "productId": item.product_id,
                     "name": item.product_name,
                     "price": item.price,
                     "quantity": item.quantity,
                     "subtotal": item.subtotal,
                 }
+
                 for item in order.items
             ],
         })
@@ -152,63 +231,100 @@ def get_orders():
 @app.route("/api/orders/<int:order_id>", methods=["PUT"])
 def update_order(order_id):
 
-    # Check if admin is logged in
-    if not session.get("admin_logged_in"):
+    if not is_admin_authenticated():
+
         return {
             "success": False,
-            "message": "Unauthorized. Admin login required."
+            "message": "Unauthorized. Admin login required.",
         }, 401
 
-    order = db.session.get(Order, order_id)
+    order = db.session.get(
+        Order,
+        order_id,
+    )
 
     if not order:
+
         return {
             "success": False,
-            "message": "Order not found."
+            "message": "Order not found.",
         }, 404
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    # Update customer information
-    order.name = data.get("name", order.name)
-    order.phone = data.get("phone", order.phone)
-    order.address = data.get("address", order.address)
-    order.city = data.get("city", order.city)
-    order.pincode = data.get("pincode", order.pincode)
+    # Customer information
 
-    # Update item quantities
-    items_data = data.get("items", [])
+    order.name = data.get(
+        "name",
+        order.name,
+    )
+
+    order.phone = data.get(
+        "phone",
+        order.phone,
+    )
+
+    order.address = data.get(
+        "address",
+        order.address,
+    )
+
+    order.city = data.get(
+        "city",
+        order.city,
+    )
+
+    order.pincode = data.get(
+        "pincode",
+        order.pincode,
+    )
+
+    # Item quantities
+
+    items_data = data.get(
+        "items",
+        [],
+    )
 
     for item_data in items_data:
 
         item = db.session.get(
             OrderItem,
-            item_data.get("id")
+            item_data.get("id"),
         )
 
-        # Make sure the item belongs to this order
         if item and item.order_id == order.id:
 
-            quantity = item_data.get("quantity")
+            quantity = item_data.get(
+                "quantity"
+            )
 
             try:
+
                 quantity = int(quantity)
+
             except (TypeError, ValueError):
+
                 return {
                     "success": False,
-                    "message": "Invalid quantity."
+                    "message": "Invalid quantity.",
                 }, 400
 
             if quantity < 1:
+
                 return {
                     "success": False,
-                    "message": "Quantity must be at least 1."
+                    "message": "Quantity must be at least 1.",
                 }, 400
 
             item.quantity = quantity
-            item.subtotal = item.price * item.quantity
 
-    # Recalculate total on the server
+            item.subtotal = (
+                item.price * item.quantity
+            )
+
+    # Recalculate total
+
     order.total = sum(
         item.subtotal
         for item in order.items
@@ -219,6 +335,7 @@ def update_order(order_id):
     return {
         "success": True,
         "message": "Order updated successfully.",
+
         "order": {
             "id": order.id,
             "orderNumber": order.order_number,
@@ -229,17 +346,19 @@ def update_order(order_id):
             "pincode": order.pincode,
             "total": order.total,
             "createdAt": order.created_at.isoformat(),
-"items": [
-    {
-        "id": item.id,
-        "productId": item.product_id,
-        "name": item.product_name,
-        "price": item.price,
-        "quantity": item.quantity,
-        "subtotal": item.subtotal,
-    }
-    for item in order.items
-],
+
+            "items": [
+                {
+                    "id": item.id,
+                    "productId": item.product_id,
+                    "name": item.product_name,
+                    "price": item.price,
+                    "quantity": item.quantity,
+                    "subtotal": item.subtotal,
+                }
+
+                for item in order.items
+            ],
         },
     }
 
@@ -251,28 +370,34 @@ def update_order(order_id):
 @app.route("/api/orders/<int:order_id>", methods=["DELETE"])
 def delete_order(order_id):
 
-    # Check if admin is logged in
-    if not session.get("admin_logged_in"):
+    if not is_admin_authenticated():
+
         return {
             "success": False,
-            "message": "Unauthorized. Admin login required."
+            "message": "Unauthorized. Admin login required.",
         }, 401
 
-    order = db.session.get(Order, order_id)
+    order = db.session.get(
+        Order,
+        order_id,
+    )
 
     if not order:
+
         return {
             "success": False,
-            "message": "Order not found."
+            "message": "Order not found.",
         }, 404
 
     db.session.delete(order)
+
     db.session.commit()
 
     return {
         "success": True,
-        "message": "Order deleted successfully."
+        "message": "Order deleted successfully.",
     }
+
 
 # =========================
 # HOME
@@ -280,6 +405,7 @@ def delete_order(order_id):
 
 @app.route("/")
 def home():
+
     return {
         "message": "Sneh Masala Katta backend is running!"
     }
@@ -291,12 +417,15 @@ def home():
 
 @app.route("/api/orders", methods=["POST"])
 def create_order():
+
     data = request.get_json()
 
     print("New order received:")
     print(data)
 
-    order_number = f"SMK-{random.randint(100000, 999999)}"
+    order_number = (
+        f"SMK-{random.randint(100000, 999999)}"
+    )
 
     order = Order(
         order_number=order_number,
@@ -309,9 +438,11 @@ def create_order():
     )
 
     db.session.add(order)
+
     db.session.flush()
 
     for item in data["items"]:
+
         order_item = OrderItem(
             order_id=order.id,
             product_id=item["id"],

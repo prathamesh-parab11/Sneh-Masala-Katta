@@ -24,147 +24,246 @@ function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [order, setOrder] = useState(null)
-  const [adminAuthenticated, setAdminAuthenticated] = useState(false)
-  const [adminChecking, setAdminChecking] = useState(true)
 
-useEffect(() => {
-  if (window.location.pathname !== '/admin') {
-    setAdminChecking(false)
-    return
-  }
+  const [adminAuthenticated, setAdminAuthenticated] =
+    useState(false)
 
-  const checkAdminSession = async () => {
-    try {
-      const response = await fetch(
-        'https://sneh-masala-katta-backend.onrender.com/api/admin/check',
-        {
-          credentials: 'include',
-        },
-      )
+  const [adminChecking, setAdminChecking] =
+    useState(true)
 
-      const data = await response.json()
 
-      setAdminAuthenticated(data.authenticated === true)
-    } catch (error) {
-      console.error('Admin session check failed:', error)
-      setAdminAuthenticated(false)
-    } finally {
+  // =========================
+  // CHECK ADMIN AUTHENTICATION
+  // =========================
+
+  useEffect(() => {
+
+    if (window.location.pathname !== '/admin') {
       setAdminChecking(false)
+      return
     }
-  }
 
-  checkAdminSession()
-}, [])
+    const checkAdminToken = async () => {
+
+      const token =
+        sessionStorage.getItem(
+          'adminToken',
+        )
+
+      if (!token) {
+        setAdminAuthenticated(false)
+        setAdminChecking(false)
+        return
+      }
+
+      try {
+
+        const response = await fetch(
+          'https://sneh-masala-katta-backend.onrender.com/api/admin/check',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        )
+
+        const data =
+          await response.json()
+
+        if (
+          response.ok &&
+          data.authenticated === true
+        ) {
+
+          setAdminAuthenticated(true)
+
+        } else {
+
+          sessionStorage.removeItem(
+            'adminToken',
+          )
+
+          setAdminAuthenticated(false)
+        }
+
+      } catch (error) {
+
+        console.error(
+          'Admin token check failed:',
+          error,
+        )
+
+        setAdminAuthenticated(false)
+
+      } finally {
+
+        setAdminChecking(false)
+
+      }
+    }
+
+    checkAdminToken()
+
+  }, [])
+
+
+  // =========================
+  // CART
+  // =========================
 
   const addToCart = (product) => {
+
     setCart((currentCart) => {
-      const existing = currentCart.find(
-        (item) => item.id === product.id,
-      )
+
+      const existing =
+        currentCart.find(
+          (item) =>
+            item.id === product.id,
+        )
 
       if (existing) {
-        return currentCart.map((item) =>
-          item.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item,
+
+        return currentCart.map(
+          (item) =>
+            item.id === product.id
+              ? {
+                  ...item,
+                  quantity:
+                    item.quantity + 1,
+                }
+              : item,
         )
       }
 
       return [
         ...currentCart,
+
         {
           ...product,
           quantity: 1,
         },
       ]
+
     })
 
     setCartOpen(true)
+
   }
 
 
   const increaseQuantity = (id) => {
+
     setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item,
+      currentCart.map(
+        (item) =>
+          item.id === id
+            ? {
+                ...item,
+                quantity:
+                  item.quantity + 1,
+              }
+            : item,
       ),
     )
+
   }
 
 
   const decreaseQuantity = (id) => {
+
     setCart((currentCart) =>
       currentCart
-        .map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item,
+        .map(
+          (item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  quantity:
+                    item.quantity - 1,
+                }
+              : item,
         )
-        .filter((item) => item.quantity > 0),
+        .filter(
+          (item) =>
+            item.quantity > 0,
+        ),
     )
+
   }
 
 
   const cartCount = cart.reduce(
-    (total, item) => total + item.quantity,
+    (total, item) =>
+      total + item.quantity,
     0,
   )
 
 
+  // =========================
+  // ADMIN PAGE
+  // =========================
 
-// Admin page
-if (window.location.pathname === '/admin') {
-  if (adminChecking) {
-    return <div>Checking admin access...</div>
-  }
+  if (
+    window.location.pathname ===
+    '/admin'
+  ) {
 
-  if (!adminAuthenticated) {
+    if (adminChecking) {
+
+      return (
+        <div>
+          Checking admin access...
+        </div>
+      )
+
+    }
+
+    if (!adminAuthenticated) {
+
+      return (
+        <AdminLogin
+          onLogin={() =>
+            setAdminAuthenticated(
+              true,
+            )
+          }
+        />
+      )
+
+    }
+
     return (
-      <AdminLogin
-        onLogin={() => setAdminAuthenticated(true)}
+      <AdminOrders
+        onLogout={() => {
+
+          sessionStorage.removeItem(
+            'adminToken',
+          )
+
+          setAdminAuthenticated(
+            false,
+          )
+
+        }}
       />
     )
+
   }
 
-return (
-  <AdminOrders
-    onLogout={async () => {
-      try {
-        await fetch(
-          'https://sneh-masala-katta-backend.onrender.com/api/admin/logout',
-          {
-            method: 'POST',
-            credentials: 'include',
-          },
-        )
-      } catch (error) {
-        console.error('Logout error:', error)
-      } finally {
-        setAdminAuthenticated(false)
-      }
-    }}
-  />
-)}
+
+  // =========================
+  // MAIN WEBSITE
+  // =========================
 
   return (
     <div className="app">
 
       <Navbar
         cartCount={cartCount}
-        onCartClick={() => setCartOpen(true)}
+        onCartClick={() =>
+          setCartOpen(true)
+        }
       />
-
 
       <main id="home">
 
@@ -172,20 +271,21 @@ return (
 
         <Features />
 
-
         <Products
           products={products}
           onAddToCart={addToCart}
-          onViewDetails={setSelectedProduct}
+          onViewDetails={
+            setSelectedProduct
+          }
         />
-
 
         <ProductDetails
           product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
+          onClose={() =>
+            setSelectedProduct(null)
+          }
           onAddToCart={addToCart}
         />
-
 
         <About />
 
@@ -193,42 +293,54 @@ return (
 
       </main>
 
-
       <Footer />
-
 
       <Cart
         cart={cart}
         cartOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        onIncrease={increaseQuantity}
-        onDecrease={decreaseQuantity}
+        onClose={() =>
+          setCartOpen(false)
+        }
+        onIncrease={
+          increaseQuantity
+        }
+        onDecrease={
+          decreaseQuantity
+        }
         onCheckout={() => {
           setCartOpen(false)
           setCheckoutOpen(true)
         }}
       />
 
-
       <Checkout
         cart={cart}
-        checkoutOpen={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        onOrderPlaced={(form) => {
-          setOrder(form)
+        checkoutOpen={
+          checkoutOpen
+        }
+        onClose={() =>
           setCheckoutOpen(false)
+        }
+        onOrderPlaced={(form) => {
+
+          setOrder(form)
+
+          setCheckoutOpen(false)
+
           setCart([])
+
           setOrderOpen(true)
+
         }}
       />
-
 
       <OrderSuccess
         order={order}
         orderOpen={orderOpen}
-        onClose={() => setOrderOpen(false)}
+        onClose={() =>
+          setOrderOpen(false)
+        }
       />
-
 
       <WhatsAppButton />
 
