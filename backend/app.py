@@ -146,6 +146,135 @@ def get_orders():
 
 
 # =========================
+# EDIT ORDER
+# =========================
+
+@app.route("/api/orders/<int:order_id>", methods=["PUT"])
+def update_order(order_id):
+
+    # Check if admin is logged in
+    if not session.get("admin_logged_in"):
+        return {
+            "success": False,
+            "message": "Unauthorized. Admin login required."
+        }, 401
+
+    order = db.session.get(Order, order_id)
+
+    if not order:
+        return {
+            "success": False,
+            "message": "Order not found."
+        }, 404
+
+    data = request.get_json()
+
+    # Update customer information
+    order.name = data.get("name", order.name)
+    order.phone = data.get("phone", order.phone)
+    order.address = data.get("address", order.address)
+    order.city = data.get("city", order.city)
+    order.pincode = data.get("pincode", order.pincode)
+
+    # Update item quantities
+    items_data = data.get("items", [])
+
+    for item_data in items_data:
+
+        item = db.session.get(
+            OrderItem,
+            item_data.get("id")
+        )
+
+        # Make sure the item belongs to this order
+        if item and item.order_id == order.id:
+
+            quantity = item_data.get("quantity")
+
+            try:
+                quantity = int(quantity)
+            except (TypeError, ValueError):
+                return {
+                    "success": False,
+                    "message": "Invalid quantity."
+                }, 400
+
+            if quantity < 1:
+                return {
+                    "success": False,
+                    "message": "Quantity must be at least 1."
+                }, 400
+
+            item.quantity = quantity
+            item.subtotal = item.price * item.quantity
+
+    # Recalculate total on the server
+    order.total = sum(
+        item.subtotal
+        for item in order.items
+    )
+
+    db.session.commit()
+
+    return {
+        "success": True,
+        "message": "Order updated successfully.",
+        "order": {
+            "id": order.id,
+            "orderNumber": order.order_number,
+            "name": order.name,
+            "phone": order.phone,
+            "address": order.address,
+            "city": order.city,
+            "pincode": order.pincode,
+            "total": order.total,
+            "createdAt": order.created_at.isoformat(),
+"items": [
+    {
+        "id": item.id,
+        "productId": item.product_id,
+        "name": item.product_name,
+        "price": item.price,
+        "quantity": item.quantity,
+        "subtotal": item.subtotal,
+    }
+    for item in order.items
+],
+        },
+    }
+
+
+# =========================
+# DELETE ORDER
+# =========================
+
+@app.route("/api/orders/<int:order_id>", methods=["DELETE"])
+def delete_order(order_id):
+
+    # Check if admin is logged in
+    if not session.get("admin_logged_in"):
+        return {
+            "success": False,
+            "message": "Unauthorized. Admin login required."
+        }, 401
+
+    order = db.session.get(Order, order_id)
+
+    if not order:
+        return {
+            "success": False,
+            "message": "Order not found."
+        }, 404
+
+    db.session.delete(order)
+    db.session.commit()
+
+    return {
+        "success": True,
+        "message": "Order deleted successfully."
+    }
+
+# =========================
 # HOME
 # =========================
 
